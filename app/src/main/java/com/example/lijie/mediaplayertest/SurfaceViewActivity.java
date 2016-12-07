@@ -35,6 +35,7 @@ public class SurfaceViewActivity extends AppCompatActivity implements SurfaceHol
     private static MediaPlayer mediaPlayer;
     private String str = "http://www.beiletech.com/resource/L.mp4";
     private int posi = 0;
+
     private boolean isPause = false;
     private Handler handler = new Handler() {
         @Override
