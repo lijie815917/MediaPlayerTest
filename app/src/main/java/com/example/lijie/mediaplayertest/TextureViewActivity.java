@@ -2,25 +2,30 @@ package com.example.lijie.mediaplayertest;
 
 import android.content.Intent;
 import android.content.res.AssetFileDescriptor;
+import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.graphics.SurfaceTexture;
 import android.media.AudioManager;
+import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Message;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.view.Surface;
 import android.view.TextureView;
+import android.view.View;
+import android.widget.ImageView;
 
 import java.io.IOException;
+import java.util.HashMap;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
-
-import static android.R.attr.width;
 
 /**
  * Created by Jarly
@@ -31,27 +36,76 @@ import static android.R.attr.width;
 
 public class TextureViewActivity extends AppCompatActivity implements TextureView.SurfaceTextureListener {
     @BindView (R.id.texture_view) MyTextureView textureView;
+    @BindView (R.id.img) ImageView img;
     private MediaPlayer mediaPlayer;
     private Surface mSurface;
-    private String str = "http://www.beiletech.com/resource/L.mp4";
+    private int posi = 0;
+    private boolean isPause = false;
+    MediaMetadataRetriever mediaMetadataRetriever;
+
+    private Bitmap bitmap;
+    private String str = "http://dianbo.ws.live.beiletech.com/beile-1102141479881458519--20161123141211.mp4?k=21112f9c3472e677&t=1479998907";
+    private Handler handler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+            switch (msg.what) {
+                case 1:
+                    if (msg.obj == null) {
+                        mediaPlayer.setSurface(null);
+                    } else {
+                        Surface holder = (Surface) msg.obj;
+                        if (holder.isValid()) {
+                            mediaPlayer.setSurface(holder);
+                            handler.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    img.setVisibility(View.GONE);
+//                                    textureView.requestLayout();
+                                }
+                            });
+                        }
+                    }
+                    break;
+                case 2:
+                    playVideo(str);
+                    break;
+            }
+        }
+    };
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_textureview);
         ButterKnife.bind(this);
+        init();
     }
 
     @OnClick (R.id.btn)
     public void btnClick() {
+//        bitmap = mediaMetadataRetriever.getFrameAtTime(mediaPlayer.getCurrentPosition() * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+
+        mediaPlayer.pause();
         startActivity(new Intent(TextureViewActivity.this, TestActivity.class));
+    }
+
+    private void init() {
+        mediaPlayer = new MediaPlayer();
+        //获取视频最后一帧，暂停返回不会黑屏
+//        mediaMetadataRetriever = new MediaMetadataRetriever();
+//        mediaMetadataRetriever.setDataSource(str,new HashMap<String, String>());
+        textureView.setSurfaceTextureListener(this);
+        Message msg = new Message();
+        msg.what = 2;
+        handler.sendMessage(msg);
     }
 
     //播放网上视频
     private void playVideo(String url) {
+        mediaPlayer.release();
         mediaPlayer = new MediaPlayer();
         mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
-        mediaPlayer.setSurface(mSurface);
         try {
             mediaPlayer.setDataSource(this, Uri.parse(url));
         } catch (IOException e) {
@@ -62,10 +116,10 @@ public class TextureViewActivity extends AppCompatActivity implements TextureVie
             @Override
             public void onPrepared(MediaPlayer mp) {
 
-//                int height = mediaPlayer.getVideoHeight();
-//                int width = mediaPlayer.getVideoWidth();
-//                textureView.setVideoSize(new Point(width, height));
-
+                //                int height = mediaPlayer.getVideoHeight();
+                //                int width = mediaPlayer.getVideoWidth();
+                //                textureView.setVideoSize(new Point(width, height));
+                mediaPlayer.seekTo(posi);
                 mediaPlayer.start();
             }
         });
@@ -110,7 +164,11 @@ public class TextureViewActivity extends AppCompatActivity implements TextureVie
     @Override
     public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
         mSurface = new Surface(surface);
-        playVideo(str);
+        Message msg = new Message();
+        msg.what = 1;
+        msg.obj = mSurface;
+        handler.sendMessage(msg);
+        //        playVideo(str);
         //        playLocalVideo();
     }
 
@@ -121,7 +179,10 @@ public class TextureViewActivity extends AppCompatActivity implements TextureVie
 
     @Override
     public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-        return false;
+
+        posi = mediaPlayer.getCurrentPosition();
+        surface.release();
+        return true;
     }
 
     @Override
@@ -143,17 +204,30 @@ public class TextureViewActivity extends AppCompatActivity implements TextureVie
     }
 
     @Override
+    protected void onRestart() {
+        super.onRestart();
+    }
+
+    @Override
     protected void onResume() {
-        textureView.setSurfaceTextureListener(this);
         super.onResume();
+        if (isPause) {
+            isPause = false;
+            if (bitmap != null) {
+                img.setVisibility(View.VISIBLE);
+                img.setImageBitmap(bitmap);
+            }
+            mediaPlayer.start();
+        }
     }
 
     @Override
     protected void onPause() {
-        mediaPlayer.pause();
-        textureView.setSurfaceTextureListener(null);
         super.onPause();
-
+        isPause = true;
+        mediaPlayer.pause();
+        bitmap = mediaMetadataRetriever.getFrameAtTime(mediaPlayer.getCurrentPosition() * 1000,
+                MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
 
     }
 }

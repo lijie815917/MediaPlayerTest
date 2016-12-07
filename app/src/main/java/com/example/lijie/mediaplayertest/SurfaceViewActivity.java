@@ -8,10 +8,14 @@ import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.View;
 
 import java.io.IOException;
 
@@ -31,6 +35,39 @@ public class SurfaceViewActivity extends AppCompatActivity implements SurfaceHol
     private static MediaPlayer mediaPlayer;
     private String str = "http://www.beiletech.com/resource/L.mp4";
     private int posi = 0;
+    private boolean isPause = false;
+    private Handler handler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+            switch (msg.what) {
+                case 1:
+                    //播放线上url
+                    playVideo(str);
+                    //播放线下url
+                    //        playLocalVideo();
+                    break;
+
+                case 2:
+                    if (msg.obj == null) {
+                        mediaPlayer.setDisplay(null);
+                    } else {
+                        SurfaceHolder holder = (SurfaceHolder) msg.obj;
+                        if (holder != null) {
+                            mediaPlayer.setDisplay(holder);
+                            handler.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    //                                    img.setVisibility(View.GONE);
+                                    surfaceView.requestLayout();
+                                }
+                            });
+                        }
+                    }
+                    break;
+            }
+        }
+    };
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -48,13 +85,19 @@ public class SurfaceViewActivity extends AppCompatActivity implements SurfaceHol
     private void init() {
         surfaceView.getHolder().addCallback(this);
         surfaceView.getHolder().setKeepScreenOn(true);
+        mediaPlayer = new MediaPlayer();
+
         //设置透明
         surfaceView.getHolder().setFormat(PixelFormat.TRANSLUCENT);
+        Message msg = new Message();
+        msg.what = 1;
+        handler.sendMessage(msg);
     }
 
     //在线url
     private void playVideo(String str) {
-        mediaPlayer = new MediaPlayer();
+//        mediaPlayer.release();
+//        mediaPlayer = new MediaPlayer();
         mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
         try {
             mediaPlayer.setDataSource(this, Uri.parse(str));
@@ -62,13 +105,13 @@ public class SurfaceViewActivity extends AppCompatActivity implements SurfaceHol
             e.printStackTrace();
         }
         mediaPlayer.prepareAsync();
-        mediaPlayer.setDisplay(surfaceView.getHolder());
+        //        mediaPlayer.setDisplay(surfaceView.getHolder());
         mediaPlayer.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
             @Override
             public void onPrepared(MediaPlayer mp) {
-//                int height = mediaPlayer.getVideoHeight();
-//                int width = mediaPlayer.getVideoWidth();
-//                surfaceView.setVideoSize(new Point(width, height));
+                //                int height = mediaPlayer.getVideoHeight();
+                //                int width = mediaPlayer.getVideoWidth();
+                //                surfaceView.setVideoSize(new Point(width, height));
                 //去除上面三句将全屏显示
                 mp.seekTo(posi);
                 mp.start();
@@ -113,10 +156,10 @@ public class SurfaceViewActivity extends AppCompatActivity implements SurfaceHol
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        //播放线上url
-        playVideo(str);
-        //播放线下url
-        //        playLocalVideo();
+        Message msg = new Message();
+        msg.what = 2;
+        msg.obj = holder;
+        handler.sendMessage(msg);
     }
 
     @Override
@@ -127,12 +170,28 @@ public class SurfaceViewActivity extends AppCompatActivity implements SurfaceHol
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
         posi = mediaPlayer.getCurrentPosition();
-        mediaPlayer.release();
-        mediaPlayer = null;
+        holder.getSurface().release();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        mediaPlayer.release();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mediaPlayer.pause();
+        isPause = true;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if(isPause){
+            isPause = false;
+            mediaPlayer.start();
+        }
     }
 }
