@@ -44,7 +44,7 @@ public class TextureViewActivity extends AppCompatActivity implements TextureVie
     MediaMetadataRetriever mediaMetadataRetriever;
 
     private Bitmap bitmap;
-    private String str = "http://dianbo.ws.live.beiletech.com/beile-1102141479881458519--20161123141211.mp4?k=21112f9c3472e677&t=1479998907";
+    private String str = "http://www.beiletech.com/resource/L.mp4";
     private Handler handler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
